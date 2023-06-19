@@ -1,0 +1,267 @@
+---
+title: "Rtools"
+format: html
+editor: visual
+---
+
+# Introduction & Learning Goals
+
+This document is yours to edit and gives an overview of how to load and use the tools necessary to view and work with census data without ever leaving R! This may be a lot of new content, so please take your time and learn at your own pace. If you have any questions or run into technical difficulties, please do not hesitate to reach out to me at phillip.post\@fcc.gov, and if you think any part of this document can be improved please let me know as I want it to be the best it can be.
+
+By the end of this lesson you will an introduction to:
+
+-   How to easily load the packages you will need
+
+-   How to set up your system to ask the census bureau for any datasets
+
+-   How to load your own datasets to combine with census data
+
+-   an introduction to how you can create new insights such as percentages or ratios of census data
+
+Feel free to click any item in the table of contents to skip around this document. Keep in mind you may run into errors if you do not run the code that came before a certain section as it is made to run in top down order.
+
+# Table of Contents
+
+1.  [Obtaining a Census Key]
+2.  [Loading Packages]
+    -   [What Packages did we Just Install?]
+        -   [here]
+        -   [tidyverse & Conflicted]
+        -   [tidycensus]
+3.  [Obtaining Census Data]
+4.  [Geocode Longitude & Latitude]
+5.  [Combine Data]
+6.  [New Insights]
+7.  [Additional Resources & Help]
+
+# Obtaining a Census Key
+
+Before we can ask the census bureau for data, we first obtain a application programming interface (API) key that will allow to communicate with the census databases and ask them for the data we would like.
+
+Please navigate to this URL:
+
+<https://api.census.gov/data/key_signup.html>
+
+Provide your organization and email and you should hear back with a key. Copy it and we will assign it to our `census_key` variable for easy access throughout our code. What you see below this text is a code cell, an interactive area where you can run specific R code at a time. Once you have inserted your census key, you can hit the green arrow button in the top right of the code cell to run it. You should see `census_key` appear as a variable defined in your environment window.
+
+```{r}
+
+census_key = "Replace this with your census key"
+```
+
+Once you have done this, you should see something like the image below but with the text replaced with your key.
+
+![](Figures\Census_key.png){fig-align="center" width="433"}
+
+# Loading Packages
+
+Our first step is to load the **packages** necessary to communicate with the census bureau and perform analysis on the data we receive. Packages are a combination of helpful code and functions others have written that are accessible to us once we install and load them. You may be familiar with the onerous process of using `install.packages()` and `library()` every time you want to load a package. There is an extraordinarily helpful package that automates this process called `pacman`, but before we can use it to save us a lot of time, we have to load it the traditional way.
+
+```{r}
+
+install.packages("pacman")
+
+library(pacman)
+```
+
+You should see that `pacman` was successfully installed. With this, we can install and load all of the other packages we will need in one line! `pacman` is also smart enough that once you have installed a package, it will not install it again. If you receive any pop ups from the code warning that a directory is not writable then it may ask you if it can write somewhere else, hit yes if this occurs.
+
+```{r}
+
+pacman::p_load("here", "tidyverse", "tidycensus", "conflicted", "sf", 
+               install = TRUE,
+               update = TRUE)
+```
+
+As you can see, the first arguments are strings that represent the names of the packages you want to install. Be careful, as a wrongly spelled package name can cause it to fail. I am also instructing `p_load()` to install the package and update it if it is out of date.
+
+You may be wondering if `pacman()` is the function then what is the `pacman::` that comes before it? This is how we tell R we want to a certain function from a certain package. Multiple packages have functions with the same name, but this is how we can tell R we only want `p_load()` from the package `pacman`.
+
+You can always check if a package was successfully installed and loaded by running `sessionInfo()` and will be able to see the names we just installed under **other attached packages:**
+
+```{r}
+
+sessionInfo()
+```
+
+## What Packages did we Just Install?
+
+We have gone over what `pacman` does but what about `here`, `tidyverse`, and `tidycensus`? I will go over each of them here.
+
+### here
+
+Have you ever run someone else's code just to receive the annoying error that a file path does not exist? Are you sick of navigating around your file directory and hardcoding every csv you want to load? Well, you will suffer no longer as `here` solves all of these problems. Let us try running the default `here()` function and see what it outputs.
+
+```{r}
+
+here()
+```
+
+You will see a file path to the current folder that is document is located in. Ok, you may be wondering how this may be useful? Well, say I have a csv containing the longitude, latitude, and internet speed of some customers in South Carolina. Well I happen to have a **Data** folder in **Rtools** that has a fake dataset of speed tests of three customers and their corresponding longitude and latitude. The file is called **Fake_data.csv**.
+
+All we need to do is provide the folder the file is in and the file name to `here()` and it will automatically produce the file path.
+
+```{r}
+
+here("Data", "Fake_data.csv")
+```
+
+You may be wondering but how does `here` know we are in the **Rtools** folder? Well, it looks for where you R project file is. Make sure to create one whenever you work on a new project as it tells R where all of your code is and sets the base file directory. This also allows you share your code with anyone and it should work automatically in there system. If you look at the very top right of R studio you will see a box with the R symbol in it. From here you can see we are currently in the **Rtools** R project and can create a new project from here.
+
+![](Figures/Rprojectlocation.png){fig-align="center" width="286"}
+
+Now, let's actually load a csv by nesting `here()` within `read.csv()`. The `<-` like an `=` tells R I want to store the result in the `phone_data` variable, both are interchangeable.
+
+```{r}
+phone_data <- read.csv(here("Data", "Fake_data.csv"))
+```
+
+You should see the data appear as the phone_data variable where you `census_key` variable is. You can either click on `phone_data` type `view(phone_data)` to view it.
+
+![](Figures/phone_data.png){fig-align="center" width="361"}
+
+```{r}
+view(phone_data)
+```
+
+### tidyverse & Conflicted
+
+`tidyverse` is a combination of some of the most helpful packages and features in R. There is a lot in it and we will only be using a small part of it here. One of the helper packages `tidyverse` loads in called `conflicted`. This package is important to know because it will throw an error whenever you try to use a function that is defined by two or more packages. This may be annoying but name space errors as these are called are the hardest errors to debug as they may not throw warnings and lead to erratic behavior.
+
+Let's say I try to use the function `filter()`, being a common word it is defined by multiple packages we have loaded. Trying to use it by itself will lead to an error:
+
+```{r}
+
+filter()
+```
+
+It is telling us that `filter()` exists in both the `dplyr` and `stats` package. We could have avoided this by specifying the package, such as `dplyr::filter()` but `conflicted` gives us a helpful warning where we can declare which one we always want to use. In this case, we can do so for `dplyr`.
+
+```{r}
+
+conflicts_prefer(dplyr::filter)
+```
+
+This will prevent us from writing code which may error each time we reopen it or use it on a different computer.
+
+The second thing to note about `tidyverse` is that it relies extensively on the `%>%` pipe operator. It seems bizarre but enables you to chain multiple functions together. It is saying take the output of any function on the leftside of the `%>%` and pass it as the input to any function on the rightside of the `%>%`.
+
+This works with any combination of functions, even ones outside of the `tidyverse`. Let's say I want all of the names in our `phone_data` to be uppercase. Well I can use use a very helpful feature of pipes to do this.
+
+```{r}
+
+phone_data <- phone_data %>% mutate(name = toupper(name))
+```
+
+Let's break down what this line of code is doing. I am saying I want the `phone_data` variable to store `phone_data` which has been passed to `mutate()`. Pipes are magic in the fact that if you pass a dataframe, like `phone_data` is, you can directly modify the columns since it knows they are within `phone_data`. So, I am telling it to take our name column and reassign it as the name column but all uppercase.
+
+You can click on `phone_data` to see that it was successful type `view(phone_data)`
+
+### tidycensus
+
+`tidycensus` is what we use to actually query the census bureau for the datasets we want. There are three functions that we will particularly rely on: `load_variables()`, `get_acs()`, and `get_decennial()`. We will go over their use in the next section.
+
+### SF
+
+Provides a suite of tools for defining a range of geographical information as spatial points and allows us to combine data based on their geographic location.
+
+# Obtaining Census Data
+
+Now that you have all of the tools you need loaded as well as a fake dataset, let's load the census data we want. The first step in this process is taking the `census_key` you defined at the start and to tell `tidycensus` what it is. This unlocks all of our future queries as `tidycensus` will use this key to pass along to the census bureau.
+
+```{r}
+
+tidycensus::census_api_key(census_key)
+
+```
+
+Before we can ask the census bureau for our data, we first need to understand what data we want and what the variable key is for it. To do this, we will use `load_variables()`, which takes two arguments (i.e. what we put in the parenthesizes). The `year` we want data (e.g. for the 2016-2020 American community survey (ACS) 5 year survey, we would say 2020) and `dataset` we want it from (e.g. in this case, the American community survey 5 year survey uses code "acs5"). Let's load the ACS 5 year survey for 2016-2020 and the decennial census and the 2011-2020 census.
+
+```{r}
+
+acs_variables <- load_variables(2020, "acs5")
+
+decennial_variables <- load_variables(2020, "pl")
+```
+
+The ACS is what you will use most often as it has detailed information down to the census block or tract level. Remember, our `phone_data` dataset has three speed tests from South Carolina. Let's say I see in `acs_variables` that median income has the name "B06011_001" and is at a census tract level. I can use this information to acquire the income dataset for South Carolina.
+
+```{r}
+
+income_data <- get_acs(geography = "tract",
+                       variables = c(income = "B06011_001"),
+                       state = "SC",
+                       year = 2020,
+                       geometry = TRUE)
+```
+
+You will now have an `income_data` dataset with all of the census tracts and their median income for South Carolina. You may have noticed we passed a few more arguments in addition to saying that the geography is a "tract" and the tag for income is "B06011_001".
+
+A helpful list of geography options can be found here:
+
+<https://walker-data.com/tidycensus/articles/basic-usage.html#geography-in-tidycensus>
+
+Since we want the data for South Carolina, we need to specify that the state is "SC" and because we want the 2016-2020 acs, we need to specify the year as 2020. Lastly, we set geometry to true since this will give us the polygons that define each census tract, which we will use to find the corresponding median income for each of our speed tests in `phone_data`. Keep in mind that you can pass as many arguments to **variables** as you want as long as they are at the same geographic level. Anything you say is equal to the data name, in this case I said `income` will become the value under the variable column and does not effect the data in any way.
+
+# Geocode Longitude & Latitude
+
+The only last barrier before we can combine our census data with the corresponding longitude and latitude values in `phone_data` is that we need to convert the longitude and latitude to `sf` points. `sf` is a package that provides a lot of helpful geographic functions. Before we can convert our lon and lats to points, we need to find what coordinate reference system (CRS) our census data uses. Since these define what geographic values actually means, we need to make sure they align in order to receive accurate results. You can find the CRS of our census data using `sf::st_crs()`.
+
+```{r}
+
+sf::st_crs(income_data)
+```
+
+When you hit run, you will see we are using the North American Datum 1983, which in this case we do not care about but want to look down at the bottom to see the number in the ID brackets. Here it is **4269**. With this we have everything we need to convert our lon and lat to points!
+
+```{r}
+
+phone_data <- sf::st_as_sf(phone_data,
+                           coords = c("lon", "lat"),
+                           crs = 4269,
+                           remove = FALSE)
+```
+
+So we are converting our `phone_data` dataset to have a new point column. We need to tell the function that our coordinates are the names of our longitude and latitude columns and we define our crs as the same as the census data. Lastly, I set remove to FALSE in order to avoid removing our longitude and latitude columns, but you can set this to TRUE.
+
+# Combine Data
+
+Now, we have everything in order to combine our data. There are a few different approaches we can take to combination, such as whether a point it within a census tract or simply touches one. In this case, I am going to combine our `phone_data` with our census data based on what census tracts our phone data points fit within.
+
+```{r}
+
+combined_data <- sf::st_join(phone_data, income_data, join = sf::st_within)
+```
+
+Put the dataset you want to keep (e.g. the phone speed test data and their locations) as the first argument, and place the census data you want to assign to each speed test as the second argument. Lastly, set join to whatever method you want (the two most common are `st_within` and `st_intersects`.
+
+And you are done! You now have a dataset with each speed test and the corresponding census data for each point.
+
+# New Insights
+
+This is an extra section to introduce you to some of the magical features of `tidyverse`. Let us say, we were not satisfied with median income being a raw number and rather wanted to normalize it as a value from 0 to 1. Well, using the `%>%` operator and our friend `mutate()` which performs operations on an entire column.
+
+```{r}
+
+combined_data <- combined_data %>% mutate(estimate = estimate/max(estimate))
+```
+
+I always recommend reading from left to right when understanding what a line of code is doing. In this case, we are defining `combined_data` as piping `combined_data` to `mutate()` and accessing the `estimate` column within `combined_data` and then mutating (redefining) it each median income divided by the maximum income in the `estimate` column.
+
+# Additional Resources & Help
+
+If you are in Rstudio, for any function we used you can type `help(function_name)` with function_name replaced with the corresponding function to read further documentation about the arguments and how it works. You can also go to this website and type in the function name:
+
+<https://www.rdocumentation.org/>
+
+What if I am running in a package out of date error or I keep on receiving weird error messages?
+
+If it says a package is out of date or the wrong version:
+
+Try to run `install.packages(package_name)`
+
+If it is generally being buggy, try to restart your R session by clicking session in the very top menu and then click restart R. This will force you to run the code from the very beginning.
+
+![](Figures/session.png){fig-align="center" width="406"}
+
+Thank you so much for your time, and I hope this was helpful.
